@@ -1,9 +1,12 @@
 using System.Reflection;
+using System.Security.Cryptography;
+using Microsoft.Toolkit.HighPerformance;
 
 namespace DumpSymbols;
 
 public sealed record Settings
 {
+    public bool JustTypes { get; init; } = true;
     public bool IncludeFields { get; init; } = true;
     public bool IncludeProperties { get; init; } = false;
     public bool IncludeMethods { get; init; } = true;
@@ -21,6 +24,13 @@ public static class Dumper
     public static IEnumerable<string> ListSymbols(Assembly assembly, Settings settings, string prefix)
     {
         foreach (var type in assembly.GetTypes()) {
+            if (settings.JustTypes) {
+                var text = string.Join(", ", ListSymbols(type, settings, ""));
+                var hash = SHA256.HashData(text.AsSpan().Cast<char, byte>());
+                var b64Hash = Convert.ToBase64String(hash)[..16];
+                yield return $"{prefix}{type.FullName} -> {b64Hash}";
+                continue;
+            }
             foreach (var symbol in ListSymbols(type, settings, prefix))
                 yield return symbol;
         }
